@@ -7,9 +7,41 @@
 #include <unistd.h>
 #include <arpa/inet.h>  
 #include <netinet/in.h>
+#include <pthread.h>
 
 #define BACKLOG 10
 #define MYPORT "3490"
+
+
+
+
+
+
+void* thred_func(void* arg )
+  {
+     int new_fd = *(int*)arg;   // cast void* back to int
+//storing the client_addr in socktaddr or socket_storage struct
+    
+    printf("Client connected on fd %d\n", new_fd);
+
+    // do some communication here...
+char buffer[1024];
+int bytes_received = recv(new_fd, buffer, sizeof(buffer)-1, 0);
+if (bytes_received == -1) {
+    perror("recv");
+} else if (bytes_received == 0) {
+    printf("Client disconnected\n");
+} else {
+    buffer[bytes_received] = '\0';
+    printf("bytes_revceived %d bytes to server.\n", bytes_received);
+    printf("Client says: %s\n", buffer);
+}
+    close(new_fd);
+    pthread_exit(NULL);
+}
+
+
+
 
 
 int main()
@@ -61,8 +93,11 @@ inet_ntop(AF_INET, &(addr->sin_addr), ipstr, sizeof(ipstr));
 printf("Server is listening on %s:%d\n", ipstr, ntohs(addr->sin_port));
 
 
+freeaddrinfo(res);
 
-//storing the client_addr in socktaddr or socket_storage struct
+while(1){
+
+
 struct sockaddr_storage client_addr;
 socklen_t addr_len = sizeof client_addr;
 
@@ -72,26 +107,15 @@ if (new_fd == -1) {
     close(sockfd);
     exit(1);
 }
-//now ready to comminucate using new_fd
 
-char buffer[1024];
-int bytes_received = recv(new_fd, buffer, sizeof(buffer)-1, 0);
-if (bytes_received == -1) {
-    perror("recv");
-} else if (bytes_received == 0) {
-    printf("Client disconnected\n");
-} else {
-    buffer[bytes_received] = '\0';
-    printf("bytes_revceived %d bytes to server.\n", bytes_received);
-    printf("Client says: %s\n", buffer);
+  
+// create thread for each client
+pthread_t tid;
+pthread_create(&tid, NULL, thred_func, &new_fd);
+pthread_detach(tid);  // no need to join, thread cleans itself
+ 
 }
-
-
 //clean up
-freeaddrinfo(res);
-close(new_fd);
 close(sockfd);
-
-
      return 0;
 }
