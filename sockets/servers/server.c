@@ -24,6 +24,30 @@ void* thred_func(void* arg )
     
     printf("Client connected on fd %d\n", new_fd);
 
+
+
+
+
+
+
+
+char *http_response =
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Type: text/plain\r\n"
+    "Content-Length: 12\r\n"
+    "\r\n"
+    "hello world\n";
+
+int bytes_sent=send(new_fd, http_response, strlen(http_response), 0);
+
+if (bytes_sent == -1) {
+        perror("send");
+    } else {
+        printf("Sent %d bytes to client.\n", bytes_sent);
+    }
+
+
+
     // do some communication here...
 char buffer[1024];
 int bytes_received = recv(new_fd, buffer, sizeof(buffer)-1, 0);
@@ -94,6 +118,9 @@ printf("Server is listening on %s:%d\n", ipstr, ntohs(addr->sin_port));
 
 
 freeaddrinfo(res);
+
+
+
 
 while(1){
 
