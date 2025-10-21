@@ -1,130 +1,152 @@
-#include<stdio.h>
-#include<semaphore.h>
-#include<pthread.h>
+/*The Producer–Consumer Problem (also called the Bounded Buffer Problem) is a classic synchronization problem in operating systems and concurrent programming.
+ * It describes a scenario where two or more processes share a common, fixed-size buffer and must coordinate their actions to avoid conflicts and data inconsistency.*/
 
-#define BUFFER_SIZE 10
-#define PRODUCERS  3 
-#define CONSUMERS   2 
+
+#include <stdio.h>
+#include <pthread.h>
+#include <stdlib.h>
+
+
+#define CAPACITY 30
+#define PRODUCERS 5 
+#define ITEMS 10 
+
+#define FOR_EACH(item, array) \
+    for (int keep = 1, \
+             count = 0, \
+             size = sizeof(array) / sizeof *(array); \
+         keep && count != size; \
+         keep = !keep, count++) \
+        for (item = (array) + count; keep; keep = !keep)
+
+//make it dynamic or random
+int items[ITEMS]={1,2,3,4,5,6,7,8,9,0};
+
 
 typedef struct {
+    int buffer[CAPACITY];
+    int full;
+    int empty;
+    int mutex;
+    int count;
+} SharedBuffer;
 
-  pthread_mutex_t mutex; 
-  sem_t empty_slots; 
-  sem_t full_slots; 
-  int data[BUFFER_SIZE];
-  int count;
+//wait and signal functions for semiphores and mutex
+void wait(int *S) { while (*S <= 0); (*S)--; }
+void signal(int *S) { (*S)++; }
 
-}SharedBuffer;
 
-SharedBuffer buffer={0};
 
-int buffer_init(SharedBuffer* buffer)
+//function to initilize the circular buffer
+void init_buffer(SharedBuffer* buffer)
 {
+
+  buffer->full=0;
+  buffer->empty=CAPACITY;
   buffer->count=0;
-  sem_init(&buffer->empty_slots,0,BUFFER_SIZE);
-  sem_init(&buffer->full_slots,0,0);
-  pthread_mutex_init(&buffer->mutex,NULL);
+  buffer->mutex=1;
+ 
+}
+
+
+//reading the values
+int enqueue(SharedBuffer* buff,const int item)
+{
+  
+  
+    if (buff->count == CAPACITY) {
+        printf("Buffer full!\n");
+        return -1;
+    }
+    buff->buffer[buff->count++] = item;
+    return 0;
+}
+
+
+//adding values in to the buffer from an array
+int dequeue(SharedBuffer* buff)
+{
+    if (buff->count == 0) {
+        printf("Buffer empty!\n");
+        return -1;
+    }
+    int item = buff->buffer[--buff->count];
+    return item;
+}
+
+
+
+int produce(SharedBuffer* buff,int item)
+{
+
+  //wait
+  wait(&buff->empty);   
+  wait(&buff->mutex);   
+
+  enqueue(buff,item);
+
+
+
+  //signal
+  signal(&buff->full);   
+  signal(&buff->mutex);   
+
+
   return 0;
+
 }
 
-
-
-void produce_item(SharedBuffer* buffer,int item)
+int consume(SharedBuffer* buff)
 {
-  //oder does matter if you grab the mutex and slepping on semaphore it leads to the deadlocks
-  //wait for the empty_slots
-  sem_wait(&buffer->empty_slots);
-  
-  //get the mutex loc
-  pthread_mutex_lock(&buffer->mutex);
 
-  //write in to buffer
-  buffer->data[buffer->count++]=item;
-  printf("Produced: %d (Buffer: %d)\n", item, buffer->count);
-  
-  //unlock the semaphore order doesnt matter 
-  pthread_mutex_unlock(&buffer->mutex);
-  sem_post(&buffer->full_slots);
-}
+  //wait
+  wait(&buff->full);   
+  wait(&buff->mutex);   
+
+  printf("%d is cosumed \n",  dequeue(buff));
 
 
 
-int consume_item(SharedBuffer* buffer)
-{
-  sem_wait(&buffer->full_slots);
-
-  pthread_mutex_lock(&buffer->mutex);
-
-  //write in to buffer
-  int item=buffer->data[--buffer->count];
-  printf("Consumed: %d (Buffer: %d)\n", item, buffer->count);
-  
-
-  pthread_mutex_unlock(&buffer->mutex);
-  sem_post(&buffer->empty_slots);
-  return item;
-}
+  //signal
+  signal(&buff->empty);   
+  signal(&buff->mutex);   
 
 
+  return 0;
 
-void* producer_thread(void* arg)
-{
-  for(int i=0;i<5;i++){
-    produce_item(&buffer,i*100);
+
   }
 
-  return NULL;
-}
 
 
-void* consumer_thread(void* arg)
-{
-  for(int i=0;i<5;i++){
-    consume_item(&buffer);
-  }
-  return NULL;
-}
+//creating threads
+
+
+//int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+ //   void *(*start_routine)(void*), void *arg);
+
+
 
 
 int main()
 {
-  pthread_t producer_count[PRODUCERS];
-  pthread_t consumer_count[CONSUMERS];
+  SharedBuffer* buff=(SharedBuffer*)malloc(sizeof(SharedBuffer));
 
-  
-  buffer_init(&buffer);
+//program crashes if you forget to initalize the buffer
+  init_buffer(buff);
+  FOR_EACH(int* item,items){
 
-  //producer thread
-  for(int i=0;i<PRODUCERS;i++)
-  {
-    pthread_create(&producer_count[i],NULL,producer_thread,NULL);
-
-  }
-  
-  //consumer thread
-  for(int i=0;i<CONSUMERS;i++)
-  {
-    pthread_create(&consumer_count[i],NULL,consumer_thread,NULL);
+    produce(buff,*item);
 
   }
   
 
-  //join threads
-  for(int i=0;i<PRODUCERS;i++)
-  {
-    pthread_join(producer_count[i],NULL);
-
-  }
-
-  for(int i=0;i<CONSUMERS;i++)
-  {
-    pthread_join(consumer_count[i],NULL);
-
+for(int i=0;i<ITEMS;i++){
+      consume(buff);
   }
 
 
-return 0;
+  return 0;
 }
-
 
 
