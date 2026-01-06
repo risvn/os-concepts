@@ -54,8 +54,6 @@ node* reverse(node* head){
   //rv_logic
 
 
-
-
   }
   return prev;
 
