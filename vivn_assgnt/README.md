@@ -5,5 +5,7 @@
 #### Problem 2: Matrix Zig-Zag Traversal (Column-wise)
 ---
 #### Problem 3: Count Consecutive Characters in a String
+---
+#### Problem 4: Given a string, remove all non-alphabetic characters (such as numbers, symbols, and punctuation) and keep only letters.
 
 
